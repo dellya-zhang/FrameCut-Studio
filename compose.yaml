@@ -1,0 +1,16 @@
+services:
+  studio:
+    build: .
+    ports:
+      - "127.0.0.1:8501:8501"
+    volumes:
+      - framecut:/data
+    environment:
+      FRAMECUT_VISION_MODEL: ${FRAMECUT_VISION_MODEL:-}
+      FRAMECUT_TEXT_MODEL: ${FRAMECUT_TEXT_MODEL:-}
+      FRAMECUT_API_BASE: ${FRAMECUT_API_BASE:-http://host.docker.internal:11434/v1}
+      FRAMECUT_API_KEY: ${FRAMECUT_API_KEY:-}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+volumes:
+  framecut:

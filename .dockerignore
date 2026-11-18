@@ -1,0 +1,6 @@
+.git
+.framecut
+.venv
+__pycache__
+docs
+tests

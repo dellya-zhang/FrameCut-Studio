@@ -59,23 +59,39 @@ def subtitles(path):
             yield Cue(seconds(start), seconds(end), text)
 
 
-def transcribe(video, length, model):
+def transcribe(video, length, model, cache=None):
     import numpy as np
     from faster_whisper import WhisperModel
 
-    whisper = WhisperModel(model, device="cpu", compute_type="int8", cpu_threads=4)
+    whisper = None
+    if cache is not None:
+        cache.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp:
         audio = Path(temp) / "chunk.wav"
         for offset in range(0, math.ceil(length), 300):
+            saved = cache / f"{offset}.json" if cache is not None else None
+            if saved is not None and saved.exists():
+                yield from (Cue(**item) for item in json.loads(saved.read_text(encoding="utf-8")))
+                continue
             run("ffmpeg", "-v", "error", "-y", "-ss", str(offset), "-i", str(video.resolve()),
                 "-t", "300", "-map", "0:a:0", "-ac", "1", "-ar", "16000", str(audio))
             with wave.open(str(audio), "rb") as pcm:
                 samples = np.frombuffer(pcm.readframes(pcm.getnframes()), dtype="<i2")
-            waveform = samples.astype(np.float32) / 32768
-            segments, _ = whisper.transcribe(waveform, vad_filter=True, beam_size=3)
-            for segment in segments:
-                if segment.text.strip():
-                    yield Cue(offset + segment.start, offset + segment.end, segment.text.strip())
+            cues = []
+            if samples.size:
+                if whisper is None:
+                    whisper = WhisperModel(model, device="cpu", compute_type="int8", cpu_threads=4)
+                waveform = samples.astype(np.float32) / 32768
+                segments, _ = whisper.transcribe(waveform, vad_filter=True, beam_size=3)
+                for segment in segments:
+                    if segment.text.strip():
+                        cues.append(Cue(offset + segment.start, offset + segment.end, segment.text.strip()))
+            if saved is not None:
+                partial = saved.with_suffix(".tmp")
+                partial.write_text(json.dumps([asdict(cue) for cue in cues], ensure_ascii=False),
+                                   encoding="utf-8")
+                partial.replace(saved)
+            yield from cues
 
 
 def screen_text(video, length, language, interval):
@@ -96,7 +112,7 @@ def screen_text(video, length, language, interval):
 
 
 def index_video(video, caption_file=None, model="tiny", ocr=None, interval=30, *,
-                visual=False, skip_speech=False):
+                visual=False, skip_speech=False, speech_cache=None):
     if interval < 1:
         raise ValueError("OCR 采样间隔必须至少为 1 秒")
     length = duration(video)
@@ -108,7 +124,7 @@ def index_video(video, caption_file=None, model="tiny", ocr=None, interval=30, *
     elif not skip_speech:
         metadata = run("ffprobe", "-v", "error", "-select_streams", "a:0",
                        "-show_entries", "stream=index", "-of", "csv=p=0", str(video.resolve()))
-        cues = list(transcribe(video, length, model)) if metadata.strip() else []
+        cues = list(transcribe(video, length, model, speech_cache)) if metadata.strip() else []
     if ocr:
         cues.extend(screen_text(video, length, ocr, interval))
     cues = [Cue(c.start, min(c.end, length), c.text, c.source)
