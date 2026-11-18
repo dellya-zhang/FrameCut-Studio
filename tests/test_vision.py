@@ -27,6 +27,12 @@ class VisionEvidenceTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     choose_shots("test", "http://localhost", "keep the sea", [{"id": 1}], 1)
 
+    def test_overlong_ranking_is_limited_without_losing_best_shot(self):
+        with patch("agent.model_reply", return_value="[2, 1]"):
+            picked = choose_shots("test", "http://localhost", "keep the sea",
+                                  [{"id": 1}, {"id": 2}], 1)
+        self.assertEqual(picked, [2])
+
     def test_missing_batch_ids_retry_per_unique_frame(self):
         batch = [
             (5, {"start": 0, "end": 4}),

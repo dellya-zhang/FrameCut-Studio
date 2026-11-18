@@ -110,11 +110,11 @@ def choose_shots(model, endpoint, goal, observations, count):
     decision = json.loads(model_reply(model, endpoint, instruction, content, max_tokens=120))
     picked = decision.get("selected") if isinstance(decision, dict) else decision
     eligible = {item["id"] for item in observations}
-    if (not isinstance(picked, list) or len(picked) > count or
+    if (not isinstance(picked, list) or
             any(type(number) is not int or number not in eligible for number in picked) or
             len(set(picked)) != len(picked)):
         raise ValueError("invalid selected shot IDs")
-    return picked
+    return picked[:count]
 
 
 def cached_descriptions(video, batch, model, endpoint, cache):
