@@ -27,6 +27,23 @@ class VisionEvidenceTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     choose_shots("test", "http://localhost", "keep the sea", [{"id": 1}], 1)
 
+    def test_missing_batch_ids_retry_per_unique_frame(self):
+        batch = [
+            (5, {"start": 0, "end": 4}),
+            (6, {"start": 4, "end": 8}),
+            (7, {"start": 8, "end": 12}),
+        ]
+        with patch("agent.representative_frame", side_effect=["a", "a", "b"]), patch(
+            "agent.model_reply", side_effect=[
+                '{"shots":[{"id":1,"description":"flower"}]}',
+                '{"shots":[{"id":1,"description":"flower"}]}',
+                '{"shots":[{"id":1,"description":"coast"}]}',
+            ],
+        ) as reply:
+            actual = describe_batch(None, batch, "test", "http://localhost")
+        self.assertEqual(actual, {5: "flower", 6: "flower", 7: "coast"})
+        self.assertEqual(reply.call_count, 3)
+
     def test_reuses_descriptions_across_different_goals(self):
         clip = {"start": 3, "end": 6, "evidence": []}
         with tempfile.TemporaryDirectory() as folder, patch.dict(

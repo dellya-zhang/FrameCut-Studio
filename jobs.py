@@ -147,7 +147,7 @@ class Workspace:
         if kind == "plan":
             units = int(bool(spec.get("review_model") or spec.get("vision"))) + int(bool(spec.get("planner_model")))
             if spec.get("vision"):
-                units += math.ceil(VISION_CANDIDATES / VISION_BATCH_SIZE) + 1
+                units += VISION_CANDIDATES + math.ceil(VISION_CANDIDATES / VISION_BATCH_SIZE) + 1
         elif kind == "question":
             units = int(bool(spec.get("model")))
         if not units:
