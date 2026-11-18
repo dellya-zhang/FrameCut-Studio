@@ -9,6 +9,7 @@ import wave
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from retrieval import build as build_vectors, config as embedding_config, hybrid
 from visual import plan_visual, scan
 
 
@@ -233,6 +234,7 @@ def main():
     build.add_argument("--model", default="tiny")
     build.add_argument("--ocr", help="Tesseract language, e.g. chi_sim+eng")
     build.add_argument("--interval", type=int, default=30)
+    build.add_argument("--embed", action="store_true", help="index text with FRAMECUT_EMBEDDING_MODEL")
     build.add_argument("--visual", action="store_true", help="index visual shot and quality features")
     build.add_argument("--skip-speech", action="store_true", help="skip automatic audio transcription")
     for name in ("chapters", "search", "cut", "highlights", "edit"):
@@ -259,6 +261,11 @@ def main():
                 raise ValueError("索引输出必须使用独立路径")
             data = index_video(args.video, args.subtitles, args.model, args.ocr, args.interval,
                                visual=args.visual, skip_speech=args.skip_speech)
+            if args.embed:
+                settings = embedding_config()
+                if not settings:
+                    raise ValueError("请先设置 FRAMECUT_EMBEDDING_MODEL")
+                data["semantic"] = build_vectors(data["cues"], settings)
             args.output.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             print(f"{len(data['cues'])} evidence records, {len(data.get('visual', []))} visual samples")
             return
@@ -266,7 +273,7 @@ def main():
         if args.command == "chapters":
             result = chapters(data)
         elif args.command == "search":
-            result = search(data, args.query)
+            result = hybrid(data, args.query, search(data, args.query), 8)
         elif args.command == "edit":
             from agent import edit
 

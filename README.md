@@ -144,7 +144,7 @@ python -m unittest discover -s tests -v
 - **续传**：从素材库打开「续传大文件」，重新选择相同文件即可从服务端确认的偏移续传。每个 4 MiB 分片有 SHA-256 校验，完成后自动提交分析。未完成的上传预留空间，超过七天无活动会在后续新建续传任务时清理。字幕及 OCR 设置仍可通过常规导入选择。
 - **并行与恢复**：各 worker 独立消费任务。PostgreSQL 用按任务的 advisory lock 协调处理权。跨主机需共享同一个 PostgreSQL 库和同路径的 POSIX 媒体卷。同一部署的实例设置相同 FRAMECUT_DB_NAMESPACE。
 - **配额**：FRAMECUT_MAX_ACTIVE_JOBS 限制每账号运行与排队任务数，FRAMECUT_MAX_UPLOAD_BYTES 限制素材大小和续传预留，FRAMECUT_MAX_MODEL_JOBS_PER_DAY 限制对话、规划和审阅的模型任务额度。向量调用与导出空间独立于上述计数。
-- **混合检索**：设置 FRAMECUT_EMBEDDING_MODEL 和 FRAMECUT_API_BASE 后重新建立索引，视频文本按分钟生成向量。检索融合关键词和向量排名。模型不可用时继续使用关键词检索。
+- **混合检索**：设置 FRAMECUT_EMBEDDING_MODEL 和 FRAMECUT_API_BASE 后重新建立索引，视频文本按分钟生成向量。检索融合关键词和向量排名。命令行可通过 index --embed 建立索引。模型不可用时继续使用关键词检索。
 - **规划与审阅**：Agent 先规划并取证，再独立校验时间轴。配置 FRAMECUT_PLANNER_MODEL 可从自然语言目标生成检索词与画面风格。配置 FRAMECUT_REVIEW_MODEL 后追加一次模型审阅。审阅可以删减候选，最终导出的时间范围仍由本地证据决定。
 
 平台模式依赖 OIDC、PostgreSQL、共享卷和前置 HTTPS 代理。跨主机部署需选择兼容的共享存储并运行稳定的数据库服务。索引以文件保存。备份时需保存 PostgreSQL 和媒体卷。

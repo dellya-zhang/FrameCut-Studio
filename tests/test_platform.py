@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from unittest.mock import patch
 
+from agent import edit
 from identity import tenant_workspace
 from jobs import QuotaExceeded, Workspace
 from retrieval import build, hybrid
@@ -111,6 +112,23 @@ class PlatformTests(unittest.TestCase):
             self.assertEqual(call("GET", link, HTTP_RANGE="bytes=1-3"), ("206 Partial Content", b"irs"))
             other = media_url("http://localhost", bob.name, secret, video)
             self.assertTrue(call("GET", other)[0].startswith("404"))
+
+    def test_planner_and_reviewer_cannot_change_timeline(self):
+        cue = {"start": 5, "end": 9, "text": "花卉", "source": "screen"}
+        index = {"duration": 20, "cues": [cue]}
+        with patch.dict(os.environ, {"FRAMECUT_PLANNER_MODEL": "planner",
+                                     "FRAMECUT_REVIEW_MODEL": "reviewer"}), patch(
+            "agent.model_reply", side_effect=[
+                '{"queries":["花卉"],"style":"scenery"}',
+                '{"keep":[1,100],"note":"invalid ID"}',
+            ],
+        ):
+            result = edit(None, index, "保留一个特写", count=1, max_seconds=8)
+        self.assertEqual(result["retrieval"]["queries"], ["保留一个特写", "花卉"])
+        clip, = result["clips"]
+        self.assertEqual(clip["evidence"], [cue])
+        self.assertEqual((clip["start"], clip["end"]), (3.5, 10.5))
+        self.assertEqual(result["review"]["method"], "timeline")
 
     def test_vector_lookup_and_fallback(self):
         settings = {"model": "fixture", "endpoint": "http://127.0.0.1:11434/v1"}
