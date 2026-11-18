@@ -1,0 +1,162 @@
+{
+  "duration": 13.0,
+  "cues": [],
+  "visual": [
+    {
+      "at": 0.0,
+      "quality": 0.706,
+      "motion": 0,
+      "cut": false
+    },
+    {
+      "at": 0.5,
+      "quality": 0.71,
+      "motion": 0.0351,
+      "cut": false
+    },
+    {
+      "at": 1.0,
+      "quality": 0.7093,
+      "motion": 0.0226,
+      "cut": false
+    },
+    {
+      "at": 1.5,
+      "quality": 0.7123,
+      "motion": 0.0215,
+      "cut": false
+    },
+    {
+      "at": 2.0,
+      "quality": 0.7154,
+      "motion": 0.0227,
+      "cut": false
+    },
+    {
+      "at": 2.5,
+      "quality": 0.7188,
+      "motion": 0.022,
+      "cut": false
+    },
+    {
+      "at": 3.0,
+      "quality": 0.7193,
+      "motion": 0.0254,
+      "cut": false
+    },
+    {
+      "at": 3.5,
+      "quality": 0.7208,
+      "motion": 0.024,
+      "cut": false
+    },
+    {
+      "at": 4.0,
+      "quality": 0.7221,
+      "motion": 0.0269,
+      "cut": false
+    },
+    {
+      "at": 4.5,
+      "quality": 0.723,
+      "motion": 0.0254,
+      "cut": false
+    },
+    {
+      "at": 5.0,
+      "quality": 0.7613,
+      "motion": 0,
+      "cut": true
+    },
+    {
+      "at": 5.5,
+      "quality": 0.7605,
+      "motion": 0.0745,
+      "cut": false
+    },
+    {
+      "at": 6.0,
+      "quality": 0.7606,
+      "motion": 0.0809,
+      "cut": false
+    },
+    {
+      "at": 6.5,
+      "quality": 0.7576,
+      "motion": 0.0824,
+      "cut": false
+    },
+    {
+      "at": 7.0,
+      "quality": 0.7608,
+      "motion": 0.0881,
+      "cut": false
+    },
+    {
+      "at": 7.5,
+      "quality": 0.7598,
+      "motion": 0.1032,
+      "cut": false
+    },
+    {
+      "at": 8.0,
+      "quality": 0.7654,
+      "motion": 0.1178,
+      "cut": false
+    },
+    {
+      "at": 8.5,
+      "quality": 0.7499,
+      "motion": 0.1559,
+      "cut": false
+    },
+    {
+      "at": 9.0,
+      "quality": 0.7694,
+      "motion": 0.1542,
+      "cut": false
+    },
+    {
+      "at": 9.5,
+      "quality": 0.7667,
+      "motion": 0.1171,
+      "cut": false
+    },
+    {
+      "at": 10.0,
+      "quality": 0.0,
+      "motion": 0,
+      "cut": true
+    },
+    {
+      "at": 10.5,
+      "quality": 0.0,
+      "motion": 0.0,
+      "cut": false
+    },
+    {
+      "at": 11.0,
+      "quality": 0.0,
+      "motion": 0.0,
+      "cut": false
+    },
+    {
+      "at": 11.5,
+      "quality": 0.0,
+      "motion": 0.0,
+      "cut": false
+    },
+    {
+      "at": 12.0,
+      "quality": 0.0,
+      "motion": 0.0,
+      "cut": false
+    },
+    {
+      "at": 12.5,
+      "quality": 0.0,
+      "motion": 0.0,
+      "cut": false
+    }
+  ]
+}

@@ -60,7 +60,7 @@ python framecut.py edit trip.json "保留海边和日落" trip.mp4 sunset.mp4 --
 ![字幕证据定位与任务记录](docs/images/evidence.png)
 ![持续追问复用视频证据](docs/images/questions.png)
 
-可在 v0.2.0 下载演示输入、时间戳索引和导出成片。 [演示文件](https://github.com/dellya-zhang/FrameCut-Studio/releases/tag/v0.2.0)演示里的实拍素材来自 [MDN 的 CC0 花卉视频](https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4)。
+可用仓库中的样片复现演示。 [演示输入](docs/demo/demo-input.mp4) · [时间戳索引](docs/demo/demo-index.json) · [导出成片](docs/demo/demo-output.mp4)演示里的实拍素材来自 [MDN 的 CC0 花卉视频](https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4)。
 
 ## 核心能力
 
