@@ -1,6 +1,8 @@
+import os
 import subprocess
 import tempfile
 import unittest
+import uuid
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,7 +18,9 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(result["evidence"][0]["start"], 5.7)
 
     def test_deduplication_recovery_and_export(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {
+            "FRAMECUT_DB_NAMESPACE": uuid.uuid4().hex,
+        }):
             root = Path(directory)
             video = root / "silent.mp4"
             subprocess.run([

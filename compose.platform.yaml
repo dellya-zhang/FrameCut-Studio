@@ -1,0 +1,68 @@
+services:
+  studio:
+    environment:
+      FRAMECUT_DATABASE_URL: postgresql://framecut:${FRAMECUT_DB_PASSWORD:?Set FRAMECUT_DB_PASSWORD}@postgres/framecut
+      FRAMECUT_REQUIRE_LOGIN: "1"
+      FRAMECUT_EMBEDDED_WORKERS: "0"
+      FRAMECUT_UPLOAD_URL: ${FRAMECUT_UPLOAD_URL:?Set FRAMECUT_UPLOAD_URL}
+      FRAMECUT_UPLOAD_SECRET: ${FRAMECUT_UPLOAD_SECRET:?Set FRAMECUT_UPLOAD_SECRET}
+    volumes:
+      - ./.streamlit/secrets.toml:/app/.streamlit/secrets.toml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+  worker:
+    build: .
+    command: ["python", "worker.py"]
+    healthcheck:
+      disable: true
+    environment:
+      FRAMECUT_DATABASE_URL: postgresql://framecut:${FRAMECUT_DB_PASSWORD:?Set FRAMECUT_DB_PASSWORD}@postgres/framecut
+      FRAMECUT_API_BASE: ${FRAMECUT_API_BASE:-http://host.docker.internal:11434/v1}
+      FRAMECUT_API_KEY: ${FRAMECUT_API_KEY:-}
+      FRAMECUT_VISION_MODEL: ${FRAMECUT_VISION_MODEL:-}
+      FRAMECUT_PLANNER_MODEL: ${FRAMECUT_PLANNER_MODEL:-}
+      FRAMECUT_REVIEW_MODEL: ${FRAMECUT_REVIEW_MODEL:-}
+      FRAMECUT_EMBEDDING_MODEL: ${FRAMECUT_EMBEDDING_MODEL:-}
+    volumes:
+      - framecut:/data
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+  uploader:
+    build: .
+    command: ["gunicorn", "--workers", "2", "--threads", "4", "--timeout", "90",
+              "--bind", "0.0.0.0:8502", "uploads:application"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8502/', timeout=3)"]
+    environment:
+      FRAMECUT_DATABASE_URL: postgresql://framecut:${FRAMECUT_DB_PASSWORD:?Set FRAMECUT_DB_PASSWORD}@postgres/framecut
+      FRAMECUT_UPLOAD_SECRET: ${FRAMECUT_UPLOAD_SECRET:?Set FRAMECUT_UPLOAD_SECRET}
+      FRAMECUT_MAX_ACTIVE_JOBS: ${FRAMECUT_MAX_ACTIVE_JOBS:-24}
+      FRAMECUT_MAX_UPLOAD_BYTES: ${FRAMECUT_MAX_UPLOAD_BYTES:-21474836480}
+      FRAMECUT_EMBEDDING_MODEL: ${FRAMECUT_EMBEDDING_MODEL:-}
+      FRAMECUT_API_BASE: ${FRAMECUT_API_BASE:-http://host.docker.internal:11434/v1}
+    ports:
+      - "127.0.0.1:8502:8502"
+    volumes:
+      - framecut:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: framecut
+      POSTGRES_DB: framecut
+      POSTGRES_PASSWORD: ${FRAMECUT_DB_PASSWORD:?Set FRAMECUT_DB_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U framecut -d framecut"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - framecut-db:/var/lib/postgresql/data
+volumes:
+  framecut-db:

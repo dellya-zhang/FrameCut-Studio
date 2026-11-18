@@ -6,12 +6,16 @@ from pathlib import Path
 import streamlit as st
 
 from framecut import chapters, search
-from jobs import Workspace
+from identity import tenant_workspace
+from jobs import QuotaExceeded, Workspace
+from worker import start
+from uploads import media_url, mint
+from retrieval import config as embedding_config, hybrid
 from visual import shots
 
 PHASES = {
     "": "排队", "probe": "读取媒体", "transcript": "语音与字幕", "ocr": "画面文字",
-    "planning": "规划剪辑", "answering": "检索与回答", "visual": "镜头分析", "result": "写入结果", "render": "渲染视频", "complete": "完成",
+    "semantic": "建立语义索引", "planning": "规划剪辑", "answering": "检索与回答", "visual": "镜头分析", "result": "写入结果", "render": "渲染视频", "complete": "完成",
 }
 STATES = {"queued": "排队中", "running": "处理中", "failed": "失败", "done": "完成"}
 KINDS = {"index": "视频分析", "plan": "剪辑规划", "export": "视频导出", "question": "证据分析"}
@@ -19,7 +23,21 @@ KINDS = {"index": "视频分析", "plan": "剪辑规划", "export": "视频导�
 
 @st.cache_resource
 def open_workspace(root):
-    return Workspace(root).start()
+    return Workspace(root)
+
+
+@st.cache_resource
+def start_workers(root, concurrency):
+    start(root, concurrency)
+    return True
+
+
+def submit(store, kind, spec):
+    try:
+        return store.submit(kind, spec)
+    except QuotaExceeded as error:
+        st.error(str(error))
+        return None
 
 
 def timestamp(time):
@@ -39,17 +57,50 @@ def progress(store, task_id, previous):
     elif state == "failed":
         st.error(f"{PHASES[job['phase']]}失败 · {job['error']}")
         if st.button("重试任务", key=f"retry-{task_id}"):
-            store.retry(task_id)
-            st.rerun()
+            try:
+                store.retry(task_id)
+            except QuotaExceeded as error:
+                st.error(str(error))
+            else:
+                st.rerun()
 
 
 st.set_page_config(page_title="FrameCut Studio", page_icon="🎬", layout="wide")
-store = open_workspace(os.getenv("FRAMECUT_WORKSPACE", ".framecut"))
+root = os.getenv("FRAMECUT_WORKSPACE", ".framecut")
+upload_url = os.getenv("FRAMECUT_UPLOAD_URL")
+upload_secret = os.getenv("FRAMECUT_UPLOAD_SECRET", "")
+media_enabled = bool(upload_url and len(upload_secret) >= 32)
+require_login = os.getenv("FRAMECUT_REQUIRE_LOGIN") == "1"
+if require_login:
+    if not media_enabled:
+        st.error("登录模式需要配置独立的上传与媒体服务。")
+        st.stop()
+    if not st.user.is_logged_in:
+        st.title("FrameCut Studio")
+        if st.button("登录"):
+            st.login()
+        st.stop()
+    try:
+        workspace_root = tenant_workspace(root, st.user)
+    except ValueError as error:
+        st.error(str(error))
+        st.stop()
+    if st.sidebar.button("退出登录"):
+        st.logout()
+else:
+    workspace_root = root
+tenant = Path(workspace_root).name if require_login else "local"
+store = open_workspace(str(workspace_root))
+start_workers(root, int(os.getenv("FRAMECUT_EMBEDDED_WORKERS", "1")))
 st.title("FrameCut Studio")
 st.caption("视频理解与智能剪辑工作台")
 
 with st.sidebar:
     st.header("素材库")
+    if media_enabled:
+        st.link_button("续传大文件", f"{upload_url.rstrip('/')}/#{mint(tenant, upload_secret)}")
+        if st.button("刷新素材库"):
+            st.rerun()
     with st.expander("导入视频", expanded=not store.list("index")):
         with st.form("import_video"):
             upload = st.file_uploader("视频", type=["mp4", "mov", "mkv", "webm"])
@@ -62,12 +113,16 @@ with st.sidebar:
             if not upload:
                 st.error("请选择视频文件。")
             else:
-                project = store.submit("index", {
-                    "video": store.ingest(upload), "name": upload.name,
-                    "captions": store.ingest(captions) if captions else None,
-                    "model": model, "ocr": None if ocr == "关闭" else ocr, "skip_speech": visual_only,
-                })
-                st.session_state.project = project
+                try:
+                    project = submit(store, "index", {
+                        "video": store.ingest(upload), "name": upload.name,
+                        "captions": store.ingest(captions) if captions else None,
+                        "model": model, "ocr": None if ocr == "关闭" else ocr, "skip_speech": visual_only, "embedding": embedding_config(),
+                    })
+                    if project:
+                        st.session_state.project = project
+                except QuotaExceeded as error:
+                    st.error(str(error))
     library = {job["id"]: json.loads(job["spec"])["name"] for job in store.list("index")}
     if library:
         project = st.selectbox("打开素材", list(library), format_func=library.get, key="project")
@@ -105,13 +160,17 @@ with workspace:
         if boundaries:
             st.dataframe([{"开始": timestamp(start), "结束": timestamp(end)}
                           for start, end in boundaries], hide_index=True)
-        st.download_button("下载时间戳索引", json.dumps(index, ensure_ascii=False, indent=2),
-                           "index.json", mime="application/json")
+        if media_enabled:
+            st.link_button("下载时间戳索引", media_url(upload_url, tenant, upload_secret,
+                          store.folder(project) / "result.json", download=True))
+        else:
+            st.download_button("下载时间戳索引", json.dumps(index, ensure_ascii=False, indent=2),
+                               "index.json", mime="application/json")
     with finder:
         with st.form("evidence_search"):
             query = st.text_input("关键词或追问", key="search_query")
             st.form_submit_button("检索证据")
-        hits = search(index, query)
+        hits = hybrid(index, query, search(index, query), 8) if query.strip() else []
         if query and not hits:
             st.info("没有匹配的文字证据。")
         for number, hit in enumerate(hits):
@@ -135,19 +194,20 @@ with workspace:
                     st.session_state.seek = (project, cue["start"])
                 st.caption(cue["text"])
         with st.form("video_question", clear_on_submit=True):
-            question = st.text_input("向这段视频提问")
+            question = st.text_input("向这段视频提问", max_chars=2000)
             mode = st.selectbox("分析侧重", list(modes), format_func=modes.get)
             if st.form_submit_button("提交问题") and question.strip():
-                store.submit("question", {
+                task_id = submit(store, "question", {
                     "video": video, "index": project, "mode": mode, "question": question,
                     "history": [spec["question"] for _, spec in turns[-2:]],
                     "model": os.getenv("FRAMECUT_TEXT_MODEL"),
                     "endpoint": os.getenv("FRAMECUT_API_BASE") or "http://127.0.0.1:11434/v1",
                 })
-                st.rerun()
+                if task_id:
+                    st.rerun()
     with editor:
         with st.form("editing_brief"):
-            goal = st.text_area("你想怎么剪？", placeholder="例如：剪一条节奏舒缓的旅行短片")
+            goal = st.text_area("你想怎么剪？", max_chars=2000, placeholder="例如：剪一条节奏舒缓的旅行短片")
             count = st.slider("最多保留片段数", 1, 10, 3)
             seconds = st.slider("单片段最长秒数", 2, 90, 12)
             use_vision = bool(os.getenv("FRAMECUT_VISION_MODEL")) and st.checkbox(
@@ -156,12 +216,16 @@ with workspace:
             generate = st.form_submit_button("生成剪辑方案", type="primary")
         if generate:
             if goal.strip():
-                st.session_state[f"plan-{project}"] = store.submit("plan", {
+                new_plan = submit(store, "plan", {
                     "video": video, "index": project, "goal": goal, "count": count,
                     "seconds": seconds, "vision": use_vision,
                     "model": os.getenv("FRAMECUT_VISION_MODEL") if use_vision else None,
+                    "review_model": os.getenv("FRAMECUT_REVIEW_MODEL"),
+                    "planner_model": os.getenv("FRAMECUT_PLANNER_MODEL"),
                     "endpoint": os.getenv("FRAMECUT_API_BASE") if use_vision else None,
                 })
+                if new_plan:
+                    st.session_state[f"plan-{project}"] = new_plan
             else:
                 st.error("请输入剪辑目标。")
         plans = {j["id"]: json.loads(j["spec"])["goal"] for j in store.list("plan")
@@ -179,6 +243,8 @@ with workspace:
             else:
                 result = store.result(plan_id)
                 st.text(result["overview"])
+                if result.get("review"):
+                    st.caption(result["review"]["note"])
                 if not result["clips"]:
                     st.info("没有找到符合目标的片段。")
                 selected = []
@@ -192,7 +258,7 @@ with workspace:
                     st.session_state.seek = (project, selected[0]["start"])
                 vertical = st.checkbox("9:16 竖屏")
                 if st.button("导出 MP4", disabled=not selected, type="primary"):
-                    store.submit("export", {"video": video, "plan": plan_id, "clips": selected,
+                    submit(store, "export", {"video": video, "plan": plan_id, "clips": selected,
                                             "vertical": vertical})
                 renders = [j for j in store.list("export")
                            if json.loads(j["spec"])["plan"] == plan_id]
@@ -200,11 +266,16 @@ with workspace:
                     if render["state"] == "done":
                         fmt = "9:16" if json.loads(render["spec"])["vertical"] else "原画幅"
                         output = Path(store.result(render["id"])["file"])
-                        st.download_button(f"下载剪辑 · {fmt}", output.read_bytes(), "highlights.mp4",
-                                           mime="video/mp4", key=render["id"])
+                        if media_enabled:
+                            st.link_button(f"下载剪辑 · {fmt}",
+                                           media_url(upload_url, tenant, upload_secret, output, download=True))
+                        else:
+                            st.download_button(f"下载剪辑 · {fmt}", output.read_bytes(), "highlights.mp4",
+                                               mime="video/mp4", key=render["id"])
                     else:
                         progress(store, render["id"], render["state"])
 
 with player:
     target, start = st.session_state.get("seek", (None, 0))
-    st.video(video, start_time=int(start) if target == project else 0)
+    source = media_url(upload_url, tenant, upload_secret, Path(video)) if media_enabled else video
+    st.video(source, start_time=int(start) if target == project else 0)

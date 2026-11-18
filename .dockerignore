@@ -4,3 +4,5 @@
 __pycache__
 docs
 tests
+
+.streamlit/secrets.toml

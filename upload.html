@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FrameCut 续传视频</title>
+<style>
+body{font:16px/1.6 system-ui,sans-serif;max-width:40rem;margin:4rem auto;padding:0 1.5rem;color:#23273a}
+input,button,progress{display:block;margin:1rem 0}label input{display:inline;margin-right:.5rem}
+progress{width:100%}button{padding:.6rem 1rem}
+</style>
+<h1>续传视频</h1>
+<form id="upload">
+<input id="video" type="file" accept=".mp4,.mov,.mkv,.webm" required aria-label="视频">
+<label><input id="silent" type="checkbox">仅分析画面</label>
+<button>开始或继续上传</button>
+</form>
+<progress id="progress" value="0" max="1"></progress>
+<p id="status" role="status">中断后可重新选择同一个文件继续。</p>
+<script>
+const token = location.hash.slice(1);
+const form = document.querySelector('#upload');
+const status = document.querySelector('#status');
+const progress = document.querySelector('#progress');
+const chunk = 4 * 1024 * 1024;
+const hex = async value => Array.from(
+  new Uint8Array(await crypto.subtle.digest('SHA-256', value)),
+  x => x.toString(16).padStart(2, '0')).join('');
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+  const file = document.querySelector('#video').files[0];
+  const button = form.querySelector('button');
+  button.disabled = true;
+  progress.value = 0;
+  try {
+    if (!token) throw Error('请从工作台打开续传页面。');
+    const hashes = [];
+    status.textContent = '正在识别文件…';
+    for (let i = 0; i < file.size; i += chunk) {
+      hashes.push(await hex(await file.slice(i, i + chunk).arrayBuffer()));
+    }
+    const fingerprint = new TextEncoder().encode(file.name + ':' + hashes.join(''));
+    const url = '/uploads/' + await hex(fingerprint);
+    const headers = {'Authorization': 'Bearer ' + token};
+    const call = async (method, body, extra) => {
+      const response = await fetch(url, {method, body, headers: {...headers, ...extra}});
+      const data = await response.json();
+      if (!response.ok && response.status !== 409) throw Error(data.error);
+      return data;
+    };
+    let result = await call('POST', JSON.stringify({
+      name: file.name, length: file.size, skip_speech: document.querySelector('#silent').checked
+    }), {'Content-Type':'application/json'});
+    while (!result.job && result.offset < file.size) {
+      const offset = result.offset;
+      progress.value = offset / file.size;
+      status.textContent = '已上传 ' + Math.floor(progress.value * 100) + '%';
+      const block = file.slice(offset, offset + chunk);
+      result = await call('PATCH', block, {
+        'Upload-Offset': String(offset), 'Chunk-SHA256': await hex(await block.arrayBuffer())
+      });
+    }
+    progress.value = 1;
+    status.textContent = '已提交分析。返回工作台并刷新即可查看任务。';
+  } catch (error) {
+    status.textContent = error.message + ' 保留此页面或重新打开后可继续上传。';
+  } finally {
+    button.disabled = false;
+  }
+});
+</script>
+</html>

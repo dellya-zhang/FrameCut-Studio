@@ -177,11 +177,11 @@ def chapters(index):
     return result
 
 
-def plan(index, query, count=3, max_seconds=30):
+def plan(index, query, count=3, max_seconds=30, *, evidence=None):
     if count < 1 or not math.isfinite(max_seconds) or max_seconds < 1:
         raise ValueError("片段数量和最长时长必须至少为 1")
     clips = []
-    for cue in search(index, query, len(index["cues"])):
+    for cue in (search(index, query, len(index["cues"])) if evidence is None else evidence):
         start = max(0, cue["start"] - min(1.5, max_seconds / 4))
         end = min(index["duration"], start + max_seconds, max(cue["end"] + 1.5, start + 4))
         if any(start < clip["end"] and end > clip["start"] for clip in clips):

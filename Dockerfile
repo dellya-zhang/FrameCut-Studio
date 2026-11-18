@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 WORKDIR /app
-COPY requirements.txt agent.py framecut.py jobs.py studio.py visual.py ./
+COPY requirements.txt agent.py database.py framecut.py jobs.py identity.py studio.py retrieval.py worker.py visual.py uploads.py upload.html ./
 COPY .streamlit .streamlit
 
 RUN --mount=type=secret,id=pip_ca,mode=0444 \

@@ -92,7 +92,7 @@ Compose 将素材、任务库、检查点、成片和转写模型缓存放在 `f
 
 ## 工程边界
 
-目前定位为单机工作台。数据保存在本机文件系统和 SQLite，单工作线程按提交顺序处理；工作台允许同一实例里的用户访问同一素材库。浏览器上传受 Streamlit 上限和内存限制，尚未实现分片续传、账号隔离、分布式队列、配额和多租户部署。文字证据使用关键词检索，尚未接入向量召回或多角色审阅。转写每五分钟提交检查点。OCR 和画面扫描按整项保存，执行中断后会重新扫描当前阶段。
+默认使用 SQLite 单机工作台，也可启用 PostgreSQL 和独立 worker 的多用户模式。转写每五分钟保存检查点，OCR 和镜头扫描在阶段结束时保存。常规上传受 Streamlit 上传上限和内存限制，大文件可通过续传入口导入。
 
 ## 系统流程
 
@@ -128,3 +128,25 @@ python -m unittest discover -s tests -v
 ## 许可证
 
 [MIT](LICENSE)
+
+## 多用户部署
+
+默认启动方式继续支持单机 SQLite 项目。多人使用时可启用 OIDC、PostgreSQL 队列、独立工作进程与浏览器续传服务。
+
+1. 在 OIDC 提供商注册 Web 客户端，将工作台域名下的 /oauth2callback 加入回调地址。复制 .streamlit/secrets.example.toml 为 .streamlit/secrets.toml 并填入实际配置。
+2. 在 .env 设置 FRAMECUT_DB_PASSWORD（使用 URL 安全字符）、FRAMECUT_UPLOAD_SECRET（至少 32 字符的随机值）和 FRAMECUT_UPLOAD_URL（浏览器可访问的上传服务 HTTPS 地址）。
+3. 用 HTTPS 反向代理分别暴露工作台和上传服务，保留工作台的 WebSocket，以及上传服务的 Authorization、Upload-Offset、Chunk-SHA256 和媒体 Range 请求头。上传服务在独立子域名的根路径部署。关闭签名媒体 URL 的查询参数日志。
+4. 启动平台并增加处理进程：
+
+    docker compose -f compose.yaml -f compose.platform.yaml up -d --build --scale worker=2
+
+- **账号隔离**：使用 OIDC 的签发方和用户 ID 划分素材、计划、导出及问答。播放和下载使用绑定素材路径的短期签名链接。已有 SQLite 数据继续由本地模式读写，平台模式使用独立数据库。
+- **续传**：从素材库打开「续传大文件」，重新选择相同文件即可从服务端确认的偏移续传。每个 4 MiB 分片有 SHA-256 校验，完成后自动提交分析。未完成的上传预留空间，超过七天无活动会在后续新建续传任务时清理。字幕及 OCR 设置仍可通过常规导入选择。
+- **并行与恢复**：各 worker 独立消费任务。PostgreSQL 用按任务的 advisory lock 协调处理权。跨主机需共享同一个 PostgreSQL 库和同路径的 POSIX 媒体卷。同一部署的实例设置相同 FRAMECUT_DB_NAMESPACE。
+- **配额**：FRAMECUT_MAX_ACTIVE_JOBS 限制每账号运行与排队任务数，FRAMECUT_MAX_UPLOAD_BYTES 限制素材大小和续传预留，FRAMECUT_MAX_MODEL_JOBS_PER_DAY 限制对话、规划和审阅的模型任务额度。向量调用与导出空间独立于上述计数。
+- **混合检索**：设置 FRAMECUT_EMBEDDING_MODEL 和 FRAMECUT_API_BASE 后重新建立索引，视频文本按分钟生成向量。检索融合关键词和向量排名。模型不可用时继续使用关键词检索。
+- **规划与审阅**：Agent 先规划并取证，再独立校验时间轴。配置 FRAMECUT_PLANNER_MODEL 可从自然语言目标生成检索词与画面风格。配置 FRAMECUT_REVIEW_MODEL 后追加一次模型审阅。审阅可以删减候选，最终导出的时间范围仍由本地证据决定。
+
+平台模式依赖 OIDC、PostgreSQL、共享卷和前置 HTTPS 代理。跨主机部署需选择兼容的共享存储并运行稳定的数据库服务。索引以文件保存。备份时需保存 PostgreSQL 和媒体卷。
+
+![浏览器续传完成后提交分析](docs/images/resumable-upload.png)
