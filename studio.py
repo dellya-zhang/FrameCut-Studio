@@ -7,6 +7,7 @@ from pathlib import Path
 import streamlit as st
 
 from framecut import chapters, export, index_video, plan, search
+from visual import plan_visual, shots
 
 
 def save_upload(upload, root, stem):
@@ -26,13 +27,15 @@ def timestamp(time):
 
 st.set_page_config(page_title="FrameCut Studio", page_icon="🎬", layout="wide")
 st.title("FrameCut Studio")
-st.caption("长视频检索与主题剪辑")
+st.caption("长视频检索与智能剪辑")
 
 with st.sidebar:
     st.header("素材")
     video = st.file_uploader("视频", type=["mp4", "mov", "mkv", "webm"])
     captions = st.file_uploader("字幕（可选）", type=["srt", "vtt"])
-    model = st.selectbox("本地转写模型", ["tiny", "base", "small"], disabled=captions is not None)
+    visual_only = st.checkbox("仅分析画面", help="跳过语音转写，适合风景、生活和无旁白视频。")
+    model = st.selectbox("本地转写模型", ["tiny", "base", "small"],
+                         disabled=visual_only or captions is not None)
     ocr = st.selectbox("画面文字识别", ["关闭", "eng", "chi_sim+eng"])
     build = st.button("建立索引", type="primary", disabled=video is None)
 
@@ -41,14 +44,15 @@ if not video:
     st.session_state.pop("render", None)
     st.stop()
 
-identity = (video.file_id, captions.file_id if captions else None, model, ocr)
+identity = (video.file_id, captions.file_id if captions else None, model, ocr, visual_only)
 if build:
     try:
         with st.spinner("正在读取素材并建立时间戳索引…"), tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             video_path = save_upload(video, root, "video")
             caption_path = save_upload(captions, root, "captions") if captions else None
-            index = index_video(video_path, caption_path, model, None if ocr == "关闭" else ocr)
+            index = index_video(video_path, caption_path, model, None if ocr == "关闭" else ocr,
+                                visual=True, skip_speech=visual_only)
         st.session_state.analysis = (identity, index)
         st.session_state.pop("render", None)
     except (OSError, RuntimeError, ValueError, ImportError, KeyError) as error:
@@ -61,7 +65,7 @@ if not analysis or analysis[0] != identity:
 
 index = analysis[1]
 if not index["cues"]:
-    st.warning("没有识别到内容。可导入字幕，或打开画面文字识别后重新建立索引。")
+    st.info("暂无文字索引。可以浏览镜头并按画面推荐剪辑。")
 
 player, workspace = st.columns([1, 1])
 with workspace:
@@ -70,6 +74,11 @@ with workspace:
         for chapter in chapters(index):
             st.markdown(f"**{timestamp(chapter['start'])} – {timestamp(chapter['end'])}**")
             st.text(chapter["excerpt"])
+        boundaries = shots(index.get("visual", []), index["duration"])
+        if boundaries:
+            with st.expander(f"镜头时间线（{len(boundaries)} 个）", expanded=not index["cues"]):
+                st.dataframe([{"开始": timestamp(start), "结束": timestamp(end)}
+                              for start, end in boundaries], hide_index=True)
         st.download_button("下载时间戳索引", json.dumps(index, ensure_ascii=False, indent=2),
                            "index.json", mime="application/json")
     with finder:
@@ -82,19 +91,26 @@ with workspace:
                 st.session_state.seek = (video.file_id, hit["start"])
             st.text(hit["text"])
     with editor:
-        topic = st.text_input("剪辑主题", placeholder="例如：太阳能发电")
+        styles = {"风景": "scenery", "生活": "daily", "按关键词": None}
+        mode = st.radio("选段方式", ["按关键词", "风景", "生活"], horizontal=True,
+                        index=0 if index["cues"] else 1)
+        topic = (st.text_input("剪辑主题", placeholder="例如：太阳能发电")
+                 if mode == "按关键词" else "")
         count = st.slider("最多保留片段数", 1, 10, 3)
         seconds = st.slider("单片段最长秒数", 5, 90, 30)
         vertical = st.checkbox("9:16 竖屏")
-        clips = plan(index, topic, count, seconds)
-        if topic and not clips:
+        style = styles[mode]
+        clips = plan_visual(index, style, count, seconds) if style else plan(index, topic, count, seconds)
+        if (topic or style) and not clips:
             st.info("没有匹配的片段")
         selected = []
         for number, clip in enumerate(clips):
             label = f"{timestamp(clip['start'])} – {timestamp(clip['end'])} · {clip['text']}"
-            if st.checkbox(label, value=True, key=f"clip-{number}-{label}"):
+            if st.checkbox(label, value=True, key=f"clip-{video.file_id}-{number}-{label}"):
                 selected.append(clip)
         settings = (identity, selected, vertical)
+        if selected and st.button("预览首个选中片段"):
+            st.session_state.seek = (video.file_id, selected[0]["start"])
         if st.button("导出 MP4", type="primary", disabled=not selected):
             try:
                 with st.spinner("正在渲染剪辑…"), tempfile.TemporaryDirectory() as temp:

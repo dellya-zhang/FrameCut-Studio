@@ -9,6 +9,8 @@ import wave
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from visual import plan_visual, scan
+
 
 @dataclass(frozen=True)
 class Cue:
@@ -93,15 +95,17 @@ def screen_text(video, length, language, interval):
             previous = text
 
 
-def index_video(video, caption_file=None, model="tiny", ocr=None, interval=30):
+def index_video(video, caption_file=None, model="tiny", ocr=None, interval=30, *,
+                visual=False, skip_speech=False):
     if interval < 1:
         raise ValueError("OCR 采样间隔必须至少为 1 秒")
     length = duration(video)
+    cues = []
     if caption_file:
         cues = list(subtitles(caption_file))
         if not cues:
             raise ValueError("字幕中没有可读的时间戳和文本")
-    else:
+    elif not skip_speech:
         metadata = run("ffprobe", "-v", "error", "-select_streams", "a:0",
                        "-show_entries", "stream=index", "-of", "csv=p=0", str(video.resolve()))
         cues = list(transcribe(video, length, model)) if metadata.strip() else []
@@ -109,7 +113,10 @@ def index_video(video, caption_file=None, model="tiny", ocr=None, interval=30):
         cues.extend(screen_text(video, length, ocr, interval))
     cues = [Cue(c.start, min(c.end, length), c.text, c.source)
             for c in cues if 0 <= c.start < min(c.end, length)]
-    return {"duration": length, "cues": [asdict(c) for c in sorted(cues, key=lambda c: c.start)]}
+    data = {"duration": length, "cues": [asdict(c) for c in sorted(cues, key=lambda c: c.start)]}
+    if visual:
+        data["visual"] = scan(video, length)
+    return data
 
 
 def tokens(text):
@@ -210,26 +217,31 @@ def main():
     build.add_argument("--model", default="tiny")
     build.add_argument("--ocr", help="Tesseract language, e.g. chi_sim+eng")
     build.add_argument("--interval", type=int, default=30)
-    for name in ("chapters", "search", "cut"):
+    build.add_argument("--visual", action="store_true", help="index visual shot and quality features")
+    build.add_argument("--skip-speech", action="store_true", help="skip automatic audio transcription")
+    for name in ("chapters", "search", "cut", "highlights"):
         command = commands.add_parser(name)
         command.add_argument("index", type=Path)
-        if name != "chapters":
+        if name in {"search", "cut"}:
             command.add_argument("query")
-        if name == "cut":
+        if name in {"cut", "highlights"}:
             command.add_argument("video", type=Path)
             command.add_argument("output", type=Path)
             command.add_argument("--count", type=int, default=3)
-            command.add_argument("--max-seconds", type=float, default=30)
+            command.add_argument("--max-seconds", type=float, default=12 if name == "highlights" else 30)
             command.add_argument("--vertical", action="store_true")
+        if name == "highlights":
+            command.add_argument("--style", choices=["scenery", "daily"], default="scenery")
     args = parser.parse_args()
     try:
         if args.command == "index":
             if args.output.resolve() in {args.video.resolve(),
                                         args.subtitles.resolve() if args.subtitles else None}:
                 raise ValueError("索引输出必须使用独立路径")
-            data = index_video(args.video, args.subtitles, args.model, args.ocr, args.interval)
+            data = index_video(args.video, args.subtitles, args.model, args.ocr, args.interval,
+                               visual=args.visual, skip_speech=args.skip_speech)
             args.output.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
-            print(f"{len(data['cues'])} evidence records")
+            print(f"{len(data['cues'])} evidence records, {len(data.get('visual', []))} visual samples")
             return
         data = json.loads(args.index.read_text(encoding="utf-8"))
         if args.command == "chapters":
@@ -237,7 +249,12 @@ def main():
         elif args.command == "search":
             result = search(data, args.query)
         else:
-            clips = plan(data, args.query, args.count, args.max_seconds)
+            if args.command == "highlights":
+                if not data.get("visual"):
+                    raise ValueError("请先使用 index --visual 建立画面索引")
+                clips = plan_visual(data, args.style, args.count, args.max_seconds)
+            else:
+                clips = plan(data, args.query, args.count, args.max_seconds)
             export(args.video, clips, args.output, args.vertical)
             result = {"file": str(args.output), "clips": clips}
         print(json.dumps(result, ensure_ascii=False, indent=2))

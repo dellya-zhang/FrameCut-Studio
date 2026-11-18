@@ -36,3 +36,20 @@ python framecut.py cut lecture.json "太阳能" lecture.mp4 highlights.mp4 --cou
 ## 当前版本
 
 章节由时间桶内的原文摘录组成。检索和选段基于关键词匹配，支持检索字幕和 OCR 文本。视频画面中的动作、人物或不含文字的场景无法直接作为检索条件。切片边界和时长以原视频帧率为准。Web 工作台面向单机使用，上传及下载文件占用内存。
+
+## 风景与生活视频
+
+工作台会抽样分析画面，在「章节」显示镜头时间线。没有旁白或只想按画面选段时，勾选「仅分析画面」可跳过自动转写，也可以同时导入已有字幕。到「智能剪辑」选择：
+
+- **风景**：优先推荐有画面细节、曝光适中和相对稳定的镜头。
+- **生活**：优先推荐有画面细节和适度变化的镜头。
+
+两种方式都优先从不同镜头取样，推荐片段按原时间顺序排列。可勾选需要的镜头，预览首个选中片段并导出。
+
+```bash
+python framecut.py index trip.mp4 trip.json --visual --skip-speech
+python framecut.py highlights trip.json trip.mp4 trip-reel.mp4 --style scenery --count 5
+python framecut.py highlights trip.json trip.mp4 daily-reel.mp4 --style daily --vertical
+```
+
+画面分析在本地运行，无需模型权重。它以每秒两帧估计镜头边界、曝光、细节和变化幅度，适合做快速初剪。「风景」与「生活」是选段风格，画面中的海边、日落或宠物等内容目前无法按名称搜索。转场定位精度受采样间隔影响。
