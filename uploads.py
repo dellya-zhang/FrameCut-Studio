@@ -12,7 +12,7 @@ from socketserver import ThreadingMixIn
 from urllib.parse import parse_qs, urlencode
 from wsgiref.simple_server import WSGIRequestHandler, WSGIServer, make_server
 
-from jobs import QuotaExceeded, Workspace, exclusive
+from jobs import INDEX_VERSION, QuotaExceeded, Workspace, exclusive
 from retrieval import config as embedding_config
 
 CHUNK = 4 * 1024**2
@@ -201,7 +201,7 @@ def application(environ, respond):
                     video = store.ingest(NamedFile(handle, state["name"]), active_reservation=key)
                 state["job"] = store.submit("index", {
                     "video": video, "name": state["name"], "captions": None, "model": "tiny",
-                    "ocr": None, "skip_speech": state["skip_speech"], "embedding": embedding_config(),
+                    "ocr": None, "skip_speech": state["skip_speech"], "embedding": embedding_config(), "index_version": INDEX_VERSION,
                 })
                 persist(metadata, state)
                 partial.unlink(missing_ok=True)

@@ -3,6 +3,7 @@ import fcntl
 import hashlib
 import json
 import logging
+import math
 import os
 import sqlite3
 import tempfile
@@ -10,13 +11,14 @@ import time
 from contextlib import ExitStack, closing, contextmanager, nullcontext
 from pathlib import Path
 
-from agent import analyze, edit
+from agent import VISION_BATCH_SIZE, VISION_CANDIDATES, analyze, edit
 from database import Postgres
 from framecut import duration, export, index_video
 from visual import scan
 from retrieval import build as build_vectors
 
 LOGGER = logging.getLogger(__name__)
+INDEX_VERSION = 2
 
 
 class QuotaExceeded(ValueError):
@@ -143,7 +145,9 @@ class Workspace:
     def reserve_budget(self, db, kind, spec):
         units = 0
         if kind == "plan":
-            units = int(bool(spec.get("vision"))) + int(bool(spec.get("review_model"))) + int(bool(spec.get("planner_model")))
+            units = int(bool(spec.get("review_model") or spec.get("vision"))) + int(bool(spec.get("planner_model")))
+            if spec.get("vision"):
+                units += math.ceil(VISION_CANDIDATES / VISION_BATCH_SIZE) + 1
         elif kind == "question":
             units = int(bool(spec.get("model")))
         if not units:
@@ -212,7 +216,8 @@ class Workspace:
         elif kind == "plan":
             index = self.result(spec["index"])
             checkpoint("result", lambda: edit(video, index, spec["goal"], spec["count"],
-                                               spec["seconds"], spec["vision"]), "planning")
+                                               spec["seconds"], spec["vision"],
+                                               vision_cache=self.folder(spec["index"]) / "vision-v2"), "planning")
         elif kind == "question":
             index = self.result(spec["index"])
             checkpoint("result", lambda: analyze(index, spec["question"], spec["mode"],

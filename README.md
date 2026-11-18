@@ -21,6 +21,8 @@ streamlit run studio.py
 
 ## 画面语义理解
 
+本地 Qwen3-VL 实测覆盖花蕾、岩岸海浪、欢呼人群和三个缺失目标。工作台会列出代表帧描述与入选状态，点击时间戳即可回看。可下载或重跑评估结果。 [模型启动与效果复现](docs/model-evaluation.md)
+
 默认可离线按文字证据、镜头稳定性、细节和变化程度做初剪。要按「保留海边和日落」等具体画面内容选段，可接入支持图文输入的 OpenAI 兼容模型，例如本机 Ollama 的 `qwen2.5vl:3b`。
 
 ```bash
@@ -145,7 +147,7 @@ python -m unittest discover -s tests -v
 - **并行与恢复**：各 worker 独立消费任务。PostgreSQL 用按任务的 advisory lock 协调处理权。跨主机需共享同一个 PostgreSQL 库和同路径的 POSIX 媒体卷。同一部署的实例设置相同 FRAMECUT_DB_NAMESPACE。
 - **配额**：FRAMECUT_MAX_ACTIVE_JOBS 限制每账号运行与排队任务数，FRAMECUT_MAX_UPLOAD_BYTES 限制素材大小和续传预留，FRAMECUT_MAX_MODEL_JOBS_PER_DAY 限制对话、规划和审阅的模型任务额度。向量调用与导出空间独立于上述计数。
 - **混合检索**：设置 FRAMECUT_EMBEDDING_MODEL 和 FRAMECUT_API_BASE 后重新建立索引，视频文本按分钟生成向量。检索融合关键词和向量排名。命令行可通过 index --embed 建立索引。模型不可用时继续使用关键词检索。
-- **规划与审阅**：Agent 先规划并取证，再独立校验时间轴。配置 FRAMECUT_PLANNER_MODEL 可从自然语言目标生成检索词与画面风格。配置 FRAMECUT_REVIEW_MODEL 后追加一次模型审阅。审阅可以删减候选，最终导出的时间范围仍由本地证据决定。
+- **规划与审阅**：Agent 先规划并取证，再独立校验时间轴。配置 FRAMECUT_PLANNER_MODEL 可从自然语言目标生成检索词与画面风格。视觉剪辑默认使用视觉模型做第二次审阅，也可配置 FRAMECUT_REVIEW_MODEL 覆盖。审阅可以删减候选，最终导出的时间范围仍由本地证据决定。
 
 平台模式依赖 OIDC、PostgreSQL、共享卷和前置 HTTPS 代理。跨主机部署需选择兼容的共享存储并运行稳定的数据库服务。索引以文件保存。备份时需保存 PostgreSQL 和媒体卷。
 

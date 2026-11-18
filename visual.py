@@ -33,7 +33,9 @@ def scan(video, duration):
                     motion = float(np.abs(rgb - previous).mean()) if previous is not None else 0
                     color_change = (float(np.abs(histogram - previous_histogram).sum()) / 2
                                     if previous_histogram is not None else 0)
-                    cut = motion > 0.27 and (color_change > 0.24 or motion > 0.48)
+                    cut = (motion > 0.48 or
+                           motion > 0.27 and color_change > 0.24 or
+                           motion > 0.16 and color_change > 0.45)
                     # Reward visible detail and avoid near-black or blown-out frames.
                     exposure = float(((gray > 0.08) & (gray < 0.95)).mean())
                     detail = min(1.0, float(np.abs(np.diff(gray, axis=1)).mean()
@@ -66,7 +68,7 @@ def shots(samples, duration):
     ]))
 
 
-def plan_visual(index, style="scenery", count=3, max_seconds=12):
+def plan_visual(index, style="scenery", count=3, max_seconds=12, *, spread=False):
     if style not in {"scenery", "daily"}:
         raise ValueError("未知的画面剪辑风格")
     if count < 1 or not math.isfinite(max_seconds) or max_seconds < 1:
@@ -104,4 +106,12 @@ def plan_visual(index, style="scenery", count=3, max_seconds=12):
     for _, shot_number, clip in candidates:
         (remaining if shot_number in represented else primary).append(clip)
         represented.add(shot_number)
-    return sorted((primary + remaining)[:count], key=lambda clip: clip["start"])
+    ranked = primary + remaining
+    if spread and len(ranked) > count:
+        bins = {}
+        for clip in ranked:
+            midpoint = (clip["start"] + clip["end"]) / 2
+            bins.setdefault(min(count - 1, int(midpoint * count / index["duration"])), clip)
+        representatives = list(bins.values())
+        ranked = representatives + [clip for clip in ranked if clip not in representatives]
+    return sorted(ranked[:count], key=lambda clip: clip["start"])

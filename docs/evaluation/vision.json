@@ -1,0 +1,383 @@
+[
+  {
+    "case": "flower",
+    "expected": [
+      0,
+      4
+    ],
+    "passed": true,
+    "baseline_passed": false,
+    "seconds": 5.2,
+    "result": {
+      "goal": "只保留花蕾和绿色叶子的近景。",
+      "overview": "视觉模型检查了 3 个代表帧，筛选出 1 个片段。",
+      "clips": [
+        {
+          "start": 0.0,
+          "end": 4.0,
+          "source": "visual",
+          "text": "生活候选 · 优先保留清晰、有变化的画面",
+          "evidence": [],
+          "reason": "一朵红色的花蕾，周围是绿色的叶子，叶子边缘呈紫色。",
+          "vision": {
+            "id": 1,
+            "description": "一朵红色的花蕾，周围是绿色的叶子，叶子边缘呈紫色。",
+            "frame": 2.0,
+            "start": 0.0,
+            "end": 4.0,
+            "text_evidence": [],
+            "match": true
+          }
+        }
+      ],
+      "review": {
+        "candidate_count": 1,
+        "selected_count": 1,
+        "method": "model",
+        "note": "模型审阅保留 1 个片段，剔除 0 个。"
+      },
+      "retrieval": {
+        "queries": [
+          "只保留花蕾和绿色叶子的近景。"
+        ],
+        "visual_style": "daily"
+      },
+      "observations": [
+        {
+          "id": 1,
+          "description": "一朵红色的花蕾，周围是绿色的叶子，叶子边缘呈紫色。",
+          "frame": 2.0,
+          "start": 0.0,
+          "end": 4.0,
+          "text_evidence": [],
+          "match": true
+        },
+        {
+          "id": 2,
+          "description": "从高空俯瞰的海岸线，海浪拍打着岩石，激起白色的浪花。",
+          "frame": 6.0,
+          "start": 4.0,
+          "end": 8.0,
+          "text_evidence": [],
+          "match": false
+        },
+        {
+          "id": 3,
+          "description": "一群穿着蓝色服装的球迷在看台上，他们举起双手，似乎在为比赛加油。",
+          "frame": 10.0,
+          "start": 8.0,
+          "end": 12.0,
+          "text_evidence": [],
+          "match": false
+        }
+      ]
+    }
+  },
+  {
+    "case": "coast",
+    "expected": [
+      4,
+      8
+    ],
+    "passed": true,
+    "baseline_passed": false,
+    "seconds": 12.2,
+    "result": {
+      "goal": "只剪海浪拍打岩石海岸的画面。",
+      "overview": "视觉模型检查了 3 个代表帧，筛选出 1 个片段。",
+      "clips": [
+        {
+          "start": 4.0,
+          "end": 8.0,
+          "source": "visual",
+          "text": "生活候选 · 优先保留清晰、有变化的画面",
+          "evidence": [],
+          "reason": "从高空俯瞰的海岸线，海浪拍打着岩石，激起白色的浪花。",
+          "vision": {
+            "id": 2,
+            "description": "从高空俯瞰的海岸线，海浪拍打着岩石，激起白色的浪花。",
+            "frame": 6.0,
+            "start": 4.0,
+            "end": 8.0,
+            "text_evidence": [],
+            "match": true
+          }
+        }
+      ],
+      "review": {
+        "candidate_count": 1,
+        "selected_count": 1,
+        "method": "model",
+        "note": "模型审阅保留 1 个片段，剔除 0 个。"
+      },
+      "retrieval": {
+        "queries": [
+          "只剪海浪拍打岩石海岸的画面。"
+        ],
+        "visual_style": "daily"
+      },
+      "observations": [
+        {
+          "id": 1,
+          "description": "一朵红色的花蕾，周围是绿色的叶子，叶子边缘呈紫色。",
+          "frame": 2.0,
+          "start": 0.0,
+          "end": 4.0,
+          "text_evidence": [],
+          "match": false
+        },
+        {
+          "id": 2,
+          "description": "从高空俯瞰的海岸线，海浪拍打着岩石，激起白色的浪花。",
+          "frame": 6.0,
+          "start": 4.0,
+          "end": 8.0,
+          "text_evidence": [],
+          "match": true
+        },
+        {
+          "id": 3,
+          "description": "一群穿着蓝色服装的球迷在看台上，他们举起双手，似乎在为比赛加油。",
+          "frame": 10.0,
+          "start": 8.0,
+          "end": 12.0,
+          "text_evidence": [],
+          "match": false
+        }
+      ]
+    }
+  },
+  {
+    "case": "crowd",
+    "expected": [
+      8,
+      12
+    ],
+    "passed": true,
+    "baseline_passed": true,
+    "seconds": 5.4,
+    "result": {
+      "goal": "Keep the shot of people cheering with raised arms.",
+      "overview": "视觉模型检查了 3 个代表帧，筛选出 1 个片段。",
+      "clips": [
+        {
+          "start": 8.0,
+          "end": 12.0,
+          "source": "visual",
+          "text": "生活候选 · 优先保留清晰、有变化的画面",
+          "evidence": [],
+          "reason": "一群穿着蓝色服装的球迷在看台上，他们举起双手，似乎在为比赛加油。",
+          "vision": {
+            "id": 3,
+            "description": "一群穿着蓝色服装的球迷在看台上，他们举起双手，似乎在为比赛加油。",
+            "frame": 10.0,
+            "start": 8.0,
+            "end": 12.0,
+            "text_evidence": [],
+            "match": true
+          }
+        }
+      ],
+      "review": {
+        "candidate_count": 1,
+        "selected_count": 1,
+        "method": "model",
+        "note": "模型审阅保留 1 个片段，剔除 0 个。"
+      },
+      "retrieval": {
+        "queries": [
+          "Keep the shot of people cheering with raised arms."
+        ],
+        "visual_style": "daily"
+      },
+      "observations": [
+        {
+          "id": 1,
+          "description": "一朵红色的花蕾，周围是绿色的叶子，叶子边缘呈紫色。",
+          "frame": 2.0,
+          "start": 0.0,
+          "end": 4.0,
+          "text_evidence": [],
+          "match": false
+        },
+        {
+          "id": 2,
+          "description": "从高空俯瞰的海岸线，海浪拍打着岩石，激起白色的浪花。",
+          "frame": 6.0,
+          "start": 4.0,
+          "end": 8.0,
+          "text_evidence": [],
+          "match": false
+        },
+        {
+          "id": 3,
+          "description": "一群穿着蓝色服装的球迷在看台上，他们举起双手，似乎在为比赛加油。",
+          "frame": 10.0,
+          "start": 8.0,
+          "end": 12.0,
+          "text_evidence": [],
+          "match": true
+        }
+      ]
+    }
+  },
+  {
+    "case": "absent",
+    "expected": null,
+    "passed": true,
+    "baseline_passed": false,
+    "seconds": 2.4,
+    "result": {
+      "goal": "只保留一辆正在雪地行驶的红色汽车。",
+      "overview": "视觉模型检查了 3 个代表帧，筛选出 0 个片段。",
+      "clips": [],
+      "review": {
+        "candidate_count": 0,
+        "selected_count": 0,
+        "method": "timeline",
+        "note": "已校验时间范围、时长限制和片段重叠。"
+      },
+      "retrieval": {
+        "queries": [
+          "只保留一辆正在雪地行驶的红色汽车。"
+        ],
+        "visual_style": "daily"
+      },
+      "observations": [
+        {
+          "id": 1,
+          "description": "一朵红色的花蕾，周围是绿色的叶子，叶子边缘呈紫色。",
+          "frame": 2.0,
+          "start": 0.0,
+          "end": 4.0,
+          "text_evidence": [],
+          "match": false
+        },
+        {
+          "id": 2,
+          "description": "从高空俯瞰的海岸线，海浪拍打着岩石，激起白色的浪花。",
+          "frame": 6.0,
+          "start": 4.0,
+          "end": 8.0,
+          "text_evidence": [],
+          "match": false
+        },
+        {
+          "id": 3,
+          "description": "一群穿着蓝色服装的球迷在看台上，他们举起双手，似乎在为比赛加油。",
+          "frame": 10.0,
+          "start": 8.0,
+          "end": 12.0,
+          "text_evidence": [],
+          "match": false
+        }
+      ]
+    }
+  },
+  {
+    "case": "absent_sailboat",
+    "expected": null,
+    "passed": true,
+    "baseline_passed": false,
+    "seconds": 2.5,
+    "result": {
+      "goal": "只保留海面上有一艘帆船的镜头。",
+      "overview": "视觉模型检查了 3 个代表帧，筛选出 0 个片段。",
+      "clips": [],
+      "review": {
+        "candidate_count": 0,
+        "selected_count": 0,
+        "method": "timeline",
+        "note": "已校验时间范围、时长限制和片段重叠。"
+      },
+      "retrieval": {
+        "queries": [
+          "只保留海面上有一艘帆船的镜头。"
+        ],
+        "visual_style": "daily"
+      },
+      "observations": [
+        {
+          "id": 1,
+          "description": "一朵红色的花蕾，周围是绿色的叶子，叶子边缘呈紫色。",
+          "frame": 2.0,
+          "start": 0.0,
+          "end": 4.0,
+          "text_evidence": [],
+          "match": false
+        },
+        {
+          "id": 2,
+          "description": "从高空俯瞰的海岸线，海浪拍打着岩石，激起白色的浪花。",
+          "frame": 6.0,
+          "start": 4.0,
+          "end": 8.0,
+          "text_evidence": [],
+          "match": false
+        },
+        {
+          "id": 3,
+          "description": "一群穿着蓝色服装的球迷在看台上，他们举起双手，似乎在为比赛加油。",
+          "frame": 10.0,
+          "start": 8.0,
+          "end": 12.0,
+          "text_evidence": [],
+          "match": false
+        }
+      ]
+    }
+  },
+  {
+    "case": "absent_dog",
+    "expected": null,
+    "passed": true,
+    "baseline_passed": false,
+    "seconds": 2.4,
+    "result": {
+      "goal": "Keep only a dog running on the beach.",
+      "overview": "视觉模型检查了 3 个代表帧，筛选出 0 个片段。",
+      "clips": [],
+      "review": {
+        "candidate_count": 0,
+        "selected_count": 0,
+        "method": "timeline",
+        "note": "已校验时间范围、时长限制和片段重叠。"
+      },
+      "retrieval": {
+        "queries": [
+          "Keep only a dog running on the beach."
+        ],
+        "visual_style": "daily"
+      },
+      "observations": [
+        {
+          "id": 1,
+          "description": "一朵红色的花蕾，周围是绿色的叶子，叶子边缘呈紫色。",
+          "frame": 2.0,
+          "start": 0.0,
+          "end": 4.0,
+          "text_evidence": [],
+          "match": false
+        },
+        {
+          "id": 2,
+          "description": "从高空俯瞰的海岸线，海浪拍打着岩石，激起白色的浪花。",
+          "frame": 6.0,
+          "start": 4.0,
+          "end": 8.0,
+          "text_evidence": [],
+          "match": false
+        },
+        {
+          "id": 3,
+          "description": "一群穿着蓝色服装的球迷在看台上，他们举起双手，似乎在为比赛加油。",
+          "frame": 10.0,
+          "start": 8.0,
+          "end": 12.0,
+          "text_evidence": [],
+          "match": false
+        }
+      ]
+    }
+  }
+]

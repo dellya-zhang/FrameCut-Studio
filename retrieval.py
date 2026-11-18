@@ -11,7 +11,8 @@ LOGGER = logging.getLogger(__name__)
 
 def config():
     model = os.getenv("FRAMECUT_EMBEDDING_MODEL")
-    endpoint = os.getenv("FRAMECUT_API_BASE") or "http://127.0.0.1:11434/v1"
+    endpoint = (os.getenv("FRAMECUT_EMBEDDING_API_BASE") or os.getenv("FRAMECUT_API_BASE")
+                or "http://127.0.0.1:11434/v1")
     return {"model": model, "endpoint": endpoint.rstrip("/")} if model else None
 
 

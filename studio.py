@@ -7,7 +7,7 @@ import streamlit as st
 
 from framecut import chapters, search
 from identity import tenant_workspace
-from jobs import QuotaExceeded, Workspace
+from jobs import INDEX_VERSION, QuotaExceeded, Workspace
 from worker import start
 from uploads import media_url, mint
 from retrieval import config as embedding_config, hybrid
@@ -117,7 +117,7 @@ with st.sidebar:
                     project = submit(store, "index", {
                         "video": store.ingest(upload), "name": upload.name,
                         "captions": store.ingest(captions) if captions else None,
-                        "model": model, "ocr": None if ocr == "关闭" else ocr, "skip_speech": visual_only, "embedding": embedding_config(),
+                        "model": model, "ocr": None if ocr == "关闭" else ocr, "skip_speech": visual_only, "embedding": embedding_config(), "index_version": INDEX_VERSION,
                     })
                     if project:
                         st.session_state.project = project
@@ -218,7 +218,7 @@ with workspace:
             if goal.strip():
                 new_plan = submit(store, "plan", {
                     "video": video, "index": project, "goal": goal, "count": count,
-                    "seconds": seconds, "vision": use_vision,
+                    "seconds": seconds, "vision": use_vision, "plan_version": 2,
                     "model": os.getenv("FRAMECUT_VISION_MODEL") if use_vision else None,
                     "review_model": os.getenv("FRAMECUT_REVIEW_MODEL"),
                     "planner_model": os.getenv("FRAMECUT_PLANNER_MODEL"),
@@ -245,6 +245,17 @@ with workspace:
                 st.text(result["overview"])
                 if result.get("review"):
                     st.caption(result["review"]["note"])
+                if result.get("observations"):
+                    accepted = {clip["vision"]["id"] for clip in result["clips"] if clip.get("vision")}
+                    with st.expander("画面证据"):
+                        for item in result["observations"]:
+                            label = {True: "审阅剔除", False: "未入选"}[item["match"]]
+                            if item["id"] in accepted:
+                                label = "已入选"
+                            if st.button(f"{timestamp(item['frame'])} · {label}",
+                                         key=f"vision-frame-{plan_id}-{item['id']}"):
+                                st.session_state.seek = (project, item["frame"])
+                            st.text(item["description"])
                 if not result["clips"]:
                     st.info("没有找到符合目标的片段。")
                 selected = []
