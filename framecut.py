@@ -219,19 +219,22 @@ def main():
     build.add_argument("--interval", type=int, default=30)
     build.add_argument("--visual", action="store_true", help="index visual shot and quality features")
     build.add_argument("--skip-speech", action="store_true", help="skip automatic audio transcription")
-    for name in ("chapters", "search", "cut", "highlights"):
+    for name in ("chapters", "search", "cut", "highlights", "edit"):
         command = commands.add_parser(name)
         command.add_argument("index", type=Path)
-        if name in {"search", "cut"}:
+        if name in {"search", "cut", "edit"}:
             command.add_argument("query")
-        if name in {"cut", "highlights"}:
+        if name in {"cut", "highlights", "edit"}:
             command.add_argument("video", type=Path)
             command.add_argument("output", type=Path)
             command.add_argument("--count", type=int, default=3)
-            command.add_argument("--max-seconds", type=float, default=12 if name == "highlights" else 30)
+            command.add_argument("--max-seconds", type=float, default=30 if name == "cut" else 12)
             command.add_argument("--vertical", action="store_true")
         if name == "highlights":
             command.add_argument("--style", choices=["scenery", "daily"], default="scenery")
+        if name == "edit":
+            command.add_argument("--vision", action="store_true")
+            command.add_argument("--plan-only", action="store_true")
     args = parser.parse_args()
     try:
         if args.command == "index":
@@ -248,6 +251,13 @@ def main():
             result = chapters(data)
         elif args.command == "search":
             result = search(data, args.query)
+        elif args.command == "edit":
+            from agent import edit
+
+            result = edit(args.video, data, args.query, args.count, args.max_seconds, args.vision)
+            if not args.plan_only and result["clips"]:
+                export(args.video, result["clips"], args.output, args.vertical)
+                result["file"] = str(args.output)
         else:
             if args.command == "highlights":
                 if not data.get("visual"):

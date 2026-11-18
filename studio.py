@@ -1,13 +1,15 @@
 """Local Streamlit workstation for FrameCut."""
 import json
+import os
 import shutil
 import tempfile
 from pathlib import Path
 
 import streamlit as st
 
-from framecut import chapters, export, index_video, plan, search
-from visual import plan_visual, shots
+from agent import edit
+from framecut import chapters, export, index_video, search
+from visual import shots
 
 
 def save_upload(upload, root, stem):
@@ -55,6 +57,7 @@ if build:
                                 visual=True, skip_speech=visual_only)
         st.session_state.analysis = (identity, index)
         st.session_state.pop("render", None)
+        st.session_state.pop("edit_plan", None)
     except (OSError, RuntimeError, ValueError, ImportError, KeyError) as error:
         st.error(str(error))
 
@@ -69,7 +72,7 @@ if not index["cues"]:
 
 player, workspace = st.columns([1, 1])
 with workspace:
-    outline, finder, editor = st.tabs(["章节", "证据检索", "智能剪辑"])
+    editor, outline, finder = st.tabs(["剪辑 Agent", "内容与镜头", "证据检索"])
     with outline:
         for chapter in chapters(index):
             st.markdown(f"**{timestamp(chapter['start'])} – {timestamp(chapter['end'])}**")
@@ -91,23 +94,39 @@ with workspace:
                 st.session_state.seek = (video.file_id, hit["start"])
             st.text(hit["text"])
     with editor:
-        styles = {"风景": "scenery", "生活": "daily", "按关键词": None}
-        mode = st.radio("选段方式", ["按关键词", "风景", "生活"], horizontal=True,
-                        index=0 if index["cues"] else 1)
-        topic = (st.text_input("剪辑主题", placeholder="例如：太阳能发电")
-                 if mode == "按关键词" else "")
-        count = st.slider("最多保留片段数", 1, 10, 3)
-        seconds = st.slider("单片段最长秒数", 5, 90, 30)
+        with st.form("editing_brief"):
+            goal = st.text_area("你想怎么剪？", placeholder="例如：挑出风力发电的讲解，或剪一条节奏舒缓的旅行短片")
+            count = st.slider("最多保留片段数", 1, 10, 3)
+            seconds = st.slider("单片段最长秒数", 2, 90, 12)
+            use_vision = bool(os.getenv("FRAMECUT_VISION_MODEL")) and st.checkbox(
+                "让视觉模型理解候选画面", value=True,
+                help="候选画面和关联文字会发往配置的模型服务。")
+            generate = st.form_submit_button("生成剪辑方案", type="primary")
         vertical = st.checkbox("9:16 竖屏")
-        style = styles[mode]
-        clips = plan_visual(index, style, count, seconds) if style else plan(index, topic, count, seconds)
-        if (topic or style) and not clips:
-            st.info("没有匹配的片段")
+        plan_key = (identity, goal, count, seconds, use_vision)
+        if generate:
+            st.session_state.pop("edit_plan", None)
+            try:
+                with st.spinner("正在结合视频内容和剪辑目标选段…"), tempfile.TemporaryDirectory() as temp:
+                    video_path = save_upload(video, Path(temp), "video") if use_vision else None
+                    result = edit(video_path, index, goal, count, seconds, use_vision)
+                st.session_state.edit_plan = (plan_key, result)
+            except (OSError, RuntimeError, ValueError) as error:
+                st.error(str(error))
+
+        saved = st.session_state.get("edit_plan")
         selected = []
-        for number, clip in enumerate(clips):
-            label = f"{timestamp(clip['start'])} – {timestamp(clip['end'])} · {clip['text']}"
-            if st.checkbox(label, value=True, key=f"clip-{video.file_id}-{number}-{label}"):
-                selected.append(clip)
+        if saved and saved[0] == plan_key:
+            result = saved[1]
+            st.text(result["overview"])
+            if not result["clips"]:
+                st.info("没有找到符合目标的片段。")
+            for number, clip in enumerate(result["clips"]):
+                label = f"{timestamp(clip['start'])} – {timestamp(clip['end'])} · {clip['reason']}"
+                if st.checkbox(label, value=True, key=f"clip-{video.file_id}-{goal}-{number}-{label}"):
+                    selected.append(clip)
+                for cue in clip["evidence"][:3]:
+                    st.caption(f"{timestamp(cue['start'])} · {cue['text']}")
         settings = (identity, selected, vertical)
         if selected and st.button("预览首个选中片段"):
             st.session_state.seek = (video.file_id, selected[0]["start"])

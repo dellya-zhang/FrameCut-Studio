@@ -1,15 +1,16 @@
 # FrameCut Studio
 
-FrameCut Studio 是一款本地长视频理解与智能剪辑工具。把课程、访谈或会议录像转成带时间戳的内容索引，搜索原视频中的证据，再按主题导出高光合集。
+FrameCut Studio 是一个把**视频理解、剪辑规划和 MP4 导出**串起来的本地视频 Agent。它从同一份视频建立时间戳索引，读取语音、字幕和画面证据，再按你的剪辑目标提出可以回看片段来源的方案。
 
-- **视频索引**：导入 SRT / WebVTT，或用 faster-whisper 在 CPU 上分段转写。可选 Tesseract 识别画面文字。
-- **内容理解**：浏览五分钟一组的章节摘录，按中英文关键词查找语音和画面文字，点击证据时间跳转播放器。
-- **智能剪辑**：按主题匹配证据，延展上下文并跳过重叠区间。勾选片段后按原时间顺序合并，支持原画幅或保留完整画面的 9:16 竖屏。
-- **结果导出**：下载 JSON 索引和 H.264 MP4。素材和推理均在本机处理，首次使用内置转写模型会下载权重。
+## 使用流程
+
+1. 上传视频，可选导入 SRT / WebVTT。Agent 会抽样分析镜头，并在本机用 faster-whisper 转写语音。风景或无旁白素材可以勾选「仅分析画面」，跳过自动转写。也可用 Tesseract 识别画面文字。
+2. 在「剪辑 Agent」描述目标，例如「保留风力发电的讲解，穿插稳定的镜头」或「剪一条节奏舒缓的旅行短片」。Agent 结合文字证据和镜头特征产生剪辑方案，也可接入视觉模型识别画面内容。
+3. 核对内容摘要、时间戳和选段依据，预览、勾选后导出原画幅或 9:16 H.264 MP4。可在「内容与镜头」浏览索引，在「证据检索」点击时间戳回看原片。
 
 ## 本地启动
 
-需要 Python 3.10+ 与带 libx264 编码器的 FFmpeg（包括 ffprobe）。OCR 可选，需要安装 Tesseract 和对应语言包（中文为 `chi_sim`）。
+需要 Python 3.10+ 与带 libx264 的 FFmpeg（包括 ffprobe）。OCR 可选，需要 Tesseract 和对应语言包（简体中文为 `chi_sim`）。首次转写会下载模型权重。Web 工作台运行在本机，上传和下载占用内存，大文件可直接走命令行。
 
 ```bash
 python -m venv .venv
@@ -18,38 +19,28 @@ python -m pip install -r requirements.txt
 streamlit run studio.py
 ```
 
-打开终端显示的本地地址。在左侧添加素材和可选字幕，点击「建立索引」。用「证据检索」定位原片，或在「智能剪辑」输入主题、调整片段数量和时长并导出 MP4。
+## 画面语义理解
+
+默认可离线按文字证据、镜头稳定性、细节和变化程度做初剪。要按「保留海边和日落」等具体画面内容选段，可接入支持图文输入的 OpenAI 兼容模型，例如本机 Ollama 的 `qwen2.5vl:3b`。
+
+```bash
+ollama pull qwen2.5vl:3b
+export FRAMECUT_VISION_MODEL=qwen2.5vl:3b
+export FRAMECUT_API_BASE=http://127.0.0.1:11434/v1
+streamlit run studio.py
+```
+
+如模型服务需要认证，可通过环境变量 `FRAMECUT_API_KEY` 设置密钥。开启视觉模型后，候选片段的代表帧和相关文字会发送到配置的服务。模型只能选择已存在的片段编号，实际剪切边界来自本地索引。视觉模型检查的是抽样后的代表帧，镜头边界精度取决于采样频率，且很短的画面事件可能遗漏。
 
 ## 命令行
 
-命令行直接读取磁盘文件，适合超出工作台上传限制的长视频。导入字幕且关闭 OCR 时，CLI 只需要 Python 标准库和 FFmpeg。
-
 ```bash
-python framecut.py index lecture.mp4 lecture.json --subtitles lecture.srt
-python framecut.py chapters lecture.json
-python framecut.py search lecture.json "太阳能"
-python framecut.py cut lecture.json "太阳能" lecture.mp4 highlights.mp4 --count 3 --max-seconds 20 --vertical
-```
+python framecut.py index lecture.mp4 lecture.json --visual --subtitles lecture.srt
+python framecut.py edit lecture.json "保留风力发电讲解" lecture.mp4 highlights.mp4 --count 3
 
-移除 `--subtitles` 可自动转写。需要更高识别精度时可加 `--model small`，也可以传入本地 CTranslate2 Whisper 模型目录。可附加 `--ocr chi_sim+eng --interval 30` 定时采样画面文字。
-
-## 当前版本
-
-章节由时间桶内的原文摘录组成。检索和选段基于关键词匹配，支持检索字幕和 OCR 文本。视频画面中的动作、人物或不含文字的场景无法直接作为检索条件。切片边界和时长以原视频帧率为准。Web 工作台面向单机使用，上传及下载文件占用内存。
-
-## 风景与生活视频
-
-工作台会抽样分析画面，在「章节」显示镜头时间线。没有旁白或只想按画面选段时，勾选「仅分析画面」可跳过自动转写，也可以同时导入已有字幕。到「智能剪辑」选择：
-
-- **风景**：优先推荐有画面细节、曝光适中和相对稳定的镜头。
-- **生活**：优先推荐有画面细节和适度变化的镜头。
-
-两种方式都优先从不同镜头取样，推荐片段按原时间顺序排列。可勾选需要的镜头，预览首个选中片段并导出。
-
-```bash
 python framecut.py index trip.mp4 trip.json --visual --skip-speech
-python framecut.py highlights trip.json trip.mp4 trip-reel.mp4 --style scenery --count 5
-python framecut.py highlights trip.json trip.mp4 daily-reel.mp4 --style daily --vertical
+python framecut.py edit trip.json "选出适合旅行短片的稳定镜头" trip.mp4 trip-reel.mp4 --vertical
+python framecut.py edit trip.json "保留海边和日落" trip.mp4 sunset.mp4 --vision --vertical
 ```
 
-画面分析在本地运行，无需模型权重。它以每秒两帧估计镜头边界、曝光、细节和变化幅度，适合做快速初剪。「风景」与「生活」是选段风格，画面中的海边、日落或宠物等内容目前无法按名称搜索。转场定位精度受采样间隔影响。
+用 `--plan-only` 只打印剪辑方案。移除 `--subtitles` 可自动转写，`--model small` 可选更大的模型。可用 `--ocr chi_sim+eng --interval 30` 定时识别画面文字。独立的 `chapters`、`search`、`cut` 和 `highlights` 命令可用于脚本集成。
