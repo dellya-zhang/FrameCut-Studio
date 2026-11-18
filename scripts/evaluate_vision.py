@@ -5,7 +5,7 @@ import shutil
 import sys
 import time
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -34,7 +34,8 @@ def sample(directory):
         source = directory / f"{name}-source.mp4"
         if not source.exists():
             partial = source.with_suffix(".part")
-            with urlopen(url, timeout=30) as response, partial.open("wb") as output:
+            request = Request(url, headers={"User-Agent": "FrameCut-Evaluation/0.4"})
+            with urlopen(request, timeout=30) as response, partial.open("wb") as output:
                 shutil.copyfileobj(response, output)
             partial.replace(source)
         parts.append(source)
